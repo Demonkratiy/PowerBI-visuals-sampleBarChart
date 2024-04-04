@@ -1,5 +1,6 @@
 import powerbiVisualsApi from "powerbi-visuals-api";
 import { formattingSettings } from "powerbi-visuals-utils-formattingmodel";
+import { dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
 import { BarChartDataPoint } from "./barChart";
 
 import Card = formattingSettings.SimpleCard;
@@ -184,7 +185,9 @@ export class BarChartSettingsModel extends Model {
                     name: "fill",
                     displayName: dataPoint.category,
                     value: { value: dataPoint.color },
-                    selector: dataPoint.selectionId.getSelector(),
+                    altConstantSelector: dataPoint.selectionId.getSelector(),
+                    selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
+                    instanceKind: powerbiVisualsApi.VisualEnumerationInstanceKinds.ConstantOrRule // <=== Support conditional formatting
                 }));
             });
         }
