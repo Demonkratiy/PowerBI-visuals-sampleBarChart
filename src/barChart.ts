@@ -19,10 +19,11 @@ import {
     HtmlSubSelectableClass, HtmlSubSelectionHelper, SubSelectableDirectEdit as SubSelectableDirectEditAttr,
     SubSelectableDisplayNameAttribute, SubSelectableObjectNameAttribute, SubSelectableTypeAttribute
 } from 'powerbi-visuals-utils-onobjectutils';
+import { dataViewObjects } from "powerbi-visuals-utils-dataviewutils";
 
 import { BarChartSettingsModel } from "./barChartSettingsModel";
 import { getLocalizedString } from "./localization/localizationHelper"
-import { getValue, getCategoricalObjectValue } from "./objectEnumerationUtility";
+import { getValue } from "./objectEnumerationUtility";
 
 import "./../style/visual.less";
 
@@ -74,6 +75,14 @@ export interface BarChartDataPoint {
     selectionId: ISelectionId;
     index: number;
     format?: string;
+}
+
+export interface BarChartPropertie {
+    [propertyName: string]: powerbi.DataViewObjectPropertyIdentifier;
+}
+
+export interface BarChartProperties {
+    [propertyName: string]: BarChartPropertie;
 }
 
 interface References {
@@ -179,7 +188,7 @@ const directEditReferences: References = {
  *                                        the visual had queried.
  * @param {IVisualHost} host            - Contains references to the host which contains services
  */
-function createSelectorDataPoints(options: VisualUpdateOptions, host: IVisualHost): BarChartDataPoint[] {
+function createSelectorDataPoints(options: VisualUpdateOptions, host: IVisualHost, formattingSettings: BarChartSettingsModel): BarChartDataPoint[] {
     const barChartDataPoints: BarChartDataPoint[] = []
     const dataViews = options.dataViews;
 
@@ -205,9 +214,10 @@ function createSelectorDataPoints(options: VisualUpdateOptions, host: IVisualHos
     const strokeColor: string = getColumnStrokeColor(colorPalette);
 
     const strokeWidth: number = getColumnStrokeWidth(colorPalette.isHighContrast);
-
+// debugger
     for (let i = 0, len = Math.max(category.values.length, dataValue.values.length); i < len; i++) {
-        const color: string = getColumnColorByIndex(category, i, colorPalette);
+        debugger
+        const color: string = getColumnColorByIndex(category, i, colorPalette, formattingSettings);
 
         const selectionId: ISelectionId = host.createSelectionIdBuilder()
             .withCategory(category, i)
@@ -232,24 +242,32 @@ function getColumnColorByIndex(
     category: DataViewCategoryColumn,
     index: number,
     colorPalette: ISandboxExtendedColorPalette,
+    formattingSettings: BarChartSettingsModel
 ): string {
+
+debugger;
+
     if (colorPalette.isHighContrast) {
         return colorPalette.background.value;
     }
+//if colors was not provided yet we need to return default color, othervise it will be 'null'
+    if (!category.objects?.[index]) {
+        const defaultColor: string = formattingSettings.colorSelector.defaultColor.value.value;
+        return defaultColor;
+    }
 
-    const defaultColor: Fill = {
-        solid: {
-            color: colorPalette.getColor(`${category.values[index]}`).value,
-        }
-    };
+    const defaultColorOverride: string = dataViewObjects.getFillColor(
+        category.objects[index],
+        BarChart.Properties.colorSelector.defaultColor);
 
-    return getCategoricalObjectValue<Fill>(
-        category,
-        index,
-        'colorSelector',
-        'fill',
-        defaultColor
-    ).solid.color;
+    const fillColorOverride: string = dataViewObjects.getFillColor(
+        category.objects[index],
+        BarChart.Properties.colorSelector.fill);
+
+    const resultColor: string = fillColorOverride ? fillColorOverride : defaultColorOverride;
+
+    return resultColor;
+
 }
 
 function getColumnStrokeColor(colorPalette: ISandboxExtendedColorPalette): string {
@@ -309,6 +327,12 @@ export class BarChart implements IVisual {
     private directEditElement: Selection<SVGElement>;
     private visualDirectEditSubSelection = JSON.stringify(DirectEdit);
     public visualOnObjectFormatting?: powerbi.extensibility.visual.VisualOnObjectFormatting;
+    public static Properties: BarChartProperties = <BarChartProperties>{
+        colorSelector: {
+            defaultColor: { objectName: "colorSelector", propertyName: "defaultColor" },
+            fill: { objectName: "colorSelector", propertyName: "fill" }
+        }
+    };
 
     static Config = {
         xScalePadding: 0.1,
@@ -398,7 +422,7 @@ export class BarChart implements IVisual {
         // Turn on landing page in capabilities and remove comment to turn on landing page!
         // this.HandleLandingPage(options);
         this.formattingSettings = this.formattingSettingsService.populateFormattingSettingsModel(BarChartSettingsModel, options.dataViews?.[0]);
-        this.barDataPoints = createSelectorDataPoints(options, this.host);
+        this.barDataPoints = createSelectorDataPoints(options, this.host, this.formattingSettings);
         this.formattingSettings.populateColorSelector(this.barDataPoints);
         this.formatMode = options.formatMode;
         const width = options.viewport.width;

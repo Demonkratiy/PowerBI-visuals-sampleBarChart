@@ -5,6 +5,7 @@ import { BarChartDataPoint } from "./barChart";
 
 import Card = formattingSettings.SimpleCard;
 import Model = formattingSettings.Model;
+import FormattingSettingsSlice = formattingSettings.Slice;
 
 class EnableAxisCardSettings extends Card {
     show = new formattingSettings.ToggleSwitch({
@@ -26,9 +27,29 @@ class EnableAxisCardSettings extends Card {
 
 
 class ColorSelectorCardSettings extends Card {
-    name: string = "colorSelector";
-    displayName: string = "Data Colors";
-    slices = [];
+
+    public name: string = "colorSelector";
+    public displayNameKey:string = "Data Colors";
+
+    //it is important to implement color conditional formating only for a default color, and not to all datapoints colors. In other case there will be no sense to use conditional formatting pattern at all. 
+    public defaultColor = new formattingSettings.ColorPicker({
+        name: "defaultColor",
+        displayNameKey: "Visual_Default_Color",
+        value: {value: "#01B8AA"},
+        instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule,
+        selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
+        altConstantSelector: null,
+        visible: true
+    });
+
+    public showAllDataPoints = new formattingSettings.ToggleSwitch({
+        name: "showAllDataPoints",
+        displayNameKey: "Visual_DataPoint_Show_All",
+        value: false,
+        visible: true
+    })
+
+    public slices: FormattingSettingsSlice[] = [this.defaultColor, this.showAllDataPoints];
 }
 
 class GeneralViewCardSettings extends Card {
@@ -178,16 +199,18 @@ export class BarChartSettingsModel extends Model {
      * @param dataPoints 
      */
     populateColorSelector(dataPoints: BarChartDataPoint[]) {
-        const slices: formattingSettings.ColorPicker[] = this.colorSelector.slices;
+        const slices: FormattingSettingsSlice[] = this.colorSelector.slices;        
         if (dataPoints) {
             dataPoints.forEach(dataPoint => {
+                if (this.colorSelector.slices.some((dataPointColorSelector: FormattingSettingsSlice) => dataPointColorSelector.displayName === dataPoint.category)){
+                    return;
+                }
                 slices.push(new formattingSettings.ColorPicker({
                     name: "fill",
                     displayName: dataPoint.category,
                     value: { value: dataPoint.color },
-                    altConstantSelector: dataPoint.selectionId.getSelector(),
-                    selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
-                    instanceKind: powerbiVisualsApi.VisualEnumerationInstanceKinds.ConstantOrRule // <=== Support conditional formatting
+                    selector: dataPoint.selectionId.getSelector(),
+                    visible: this.colorSelector.showAllDataPoints.value
                 }));
             });
         }

@@ -151,6 +151,20 @@
     },
     "colorSelector": {
       "properties": {
+        "defaultColor": {
+          "type": {
+            "fill": {
+              "solid": {
+                "color": true
+              }
+            }
+          }
+        },
+        "showAllDataPoints": {
+          "type": {
+            "bool": true
+          }
+        },
         "fill": {
           "type": {
             "fill": {
